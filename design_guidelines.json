@@ -1,0 +1,103 @@
+{
+  "project_name": "Toko Lawanglimo",
+  "theme": "Light",
+  "archetype": "1 - Organic & Earthy",
+  "design_philosophy": "Approachability, trust, and organic warmth. Reflecting a local Indonesian offline store with a modern, clean, premium e-commerce layer. Utilizing soft edges, warm earthy tones, clear typography, and bento-style layouts.",
+  "colors": {
+    "background": "#FAF9F6",
+    "surface": "#FFFFFF",
+    "surface_muted": "#F3F1EC",
+    "primary": "#D9534F",
+    "primary_hover": "#C9302C",
+    "secondary": "#2D3748",
+    "text_main": "#1A202C",
+    "text_muted": "#4A5568",
+    "border": "#E2E8F0",
+    "success_whatsapp": "#25D366",
+    "discount_badge": "#F6AD55"
+  },
+  "typography": {
+    "heading_font": "Outfit, sans-serif",
+    "body_font": "Plus Jakarta Sans, sans-serif",
+    "rules": {
+      "h1": "text-4xl sm:text-5xl font-bold tracking-tight text-text_main",
+      "h2": "text-2xl sm:text-3xl font-semibold tracking-tight text-text_main",
+      "h3": "text-xl font-semibold text-text_main",
+      "body": "text-base leading-relaxed text-text_muted",
+      "small_label": "text-xs font-semibold uppercase tracking-wider text-text_muted"
+    }
+  },
+  "layout_spacing": {
+    "container": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8",
+    "section_gap": "py-16 sm:py-24",
+    "grid_product": "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6",
+    "border_radius": {
+      "card": "rounded-2xl",
+      "button": "rounded-full",
+      "image": "rounded-xl"
+    },
+    "shadows": {
+      "soft": "shadow-[0_8px_30px_rgb(0,0,0,0.04)]",
+      "hover": "shadow-[0_20px_40px_rgb(0,0,0,0.08)]"
+    }
+  },
+  "pages_and_components": {
+    "homepage": {
+      "hero_carousel": "Use Shadcn Carousel with 'embla-carousel-autoplay' for the 3-slide auto-scrolling offline store photos. The container should be soft-rounded (rounded-3xl) with a subtle dark overlay (bg-black/30) to ensure text contrast.",
+      "cta": "Prominent 'Belanja Sekarang' button overlaying the hero section or immediately below it, using the primary color.",
+      "maps_section": "Embedded Google map showing the physical store. Use an iframe within a card (rounded-2xl) alongside store details."
+    },
+    "shopping_page": {
+      "filters": "Horizontal scrollable pill list or sidebar with checkboxes for product types/categories.",
+      "product_card": "Bento-style card: Image on top (aspect-square, object-cover), name, price, distinct discount badge overlay if applicable, and a primary-colored 'Beli' or 'Keranjang' button. Apply soft shadow and hover effect."
+    },
+    "cart_checkout": {
+      "layout": "Two-column layout on desktop: Cart items list on the left, summary and discount input on the right.",
+      "actions": "Discount code input field with an 'Apply' button. Checkout button MUST be vibrant green (success_whatsapp) with a WhatsApp icon from lucide-react."
+    },
+    "admin_dashboard": {
+      "style": "Clean, dense table layouts. Functional-first. White backgrounds, minimal borders. Utilize Shadcn Table, Dialog, and Forms for adding/editing products.",
+      "features": "Must include functionality to upload/change the 3 slider photos, manage categories, and add discount codes with percentages when adding products."
+    }
+  },
+  "media_assets": {
+    "store_carousel_images": [
+      {
+        "url": "https://images.pexels.com/photos/7996793/pexels-photo-7996793.jpeg",
+        "description": "Store Exterior Front"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1604719312566-8912e9227c6a",
+        "description": "Store Interior Aisle"
+      },
+      {
+        "url": "https://images.pexels.com/photos/27088193/pexels-photo-27088193.jpeg",
+        "description": "Customers Shopping"
+      }
+    ],
+    "product_placeholders": [
+      {
+        "url": "https://images.unsplash.com/photo-1775217164466-ddfb22514eba",
+        "description": "Packaged goods on shelf"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1762232621825-a719d413537c",
+        "description": "Snacks and local items"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1779464065370-19c0b715a374",
+        "description": "Produce and traditional items"
+      }
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Install Google Fonts: 'Outfit' (for headings) and 'Plus Jakarta Sans' (for body). Update tailwind.config.js to use them.",
+    "Use 'lucide-react' for all icons.",
+    "Implement the homepage slider using Shadcn Carousel + Embla Autoplay. Seed the database/state with the 'store_carousel_images' provided here, as the admin needs the ability to update them.",
+    "For the Google Maps embed, use the standard iframe format. If the provided shortlink (https://maps.app.goo.gl/ujmyhaeKVCEXRX717) cannot be embedded directly, extract or use a generic maps iframe embed pointing to the store coordinates.",
+    "Implement checkout redirect to WhatsApp formatting the cart details into the URL: 'https://wa.me/<number>?text=<encoded_order_details>'.",
+    "CRITICAL: Every interactive and key informational element MUST include a 'data-testid' attribute (e.g., 'data-testid=\"belanja-sekarang-btn\"').",
+    "Admin dashboard must be built using Shadcn UI components heavily. Ensure form inputs allow adding a discount code and percentage per product.",
+    "Mock the backend API logic for products, categories, cart, discounts, and slider images using state or a local mock database."
+  ]
+}
