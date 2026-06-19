@@ -1,0 +1,54 @@
+{
+  "summary": "First iteration end-to-end testing of Toko Lawanglimo (FastAPI + React + MongoDB). Backend: 20/20 pytest cases passed (health, auth incl. change-credentials with revert, categories CRUD, products CRUD with discount_code hiding on public endpoints + admin visibility, slides update, discount validate happy/invalid/empty, image upload + serve, auth-required gates). Frontend: home carousel + Belanja Sekarang nav, WA contact (wa.me/6281329856815) and Google Maps embed verified, shop add-to-cart updates Navbar cart-count, SPA navigation to /cart preserves items, discount code 'HEMAT10' applies (-Rp 10.000, total Rp 90.000), checkout-wa-btn opens correctly URL-encoded wa.me/6281329856815?text=... order details. Admin login + tabs (Produk/Kategori/Slider/Akun) functional; product create with image-less + discount fields works.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "CartProvider (lib/cart.js)",
+        "issue": "Cart items lost after hard browser refresh on /cart. The persistence writer useEffect([items]) fires on mount with the initial empty items=[] before the hydration useEffect's setItems propagates, briefly overwriting localStorage to '[]'. Although in theory a re-render should restore, in practice after page.reload() + 1.2s wait the cart was empty.",
+        "selector": "[data-testid^=\"cart-item-\"]",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "AdminPage product/edit Dialog",
+        "issues": ["React a11y console warning: 'Missing Description or aria-describedby={undefined} for DialogContent'. Add <DialogDescription> or aria-describedby to silence and improve accessibility."]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_lawanglimo_api.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Fix cart persistence race in /app/frontend/src/lib/cart.js. Recommended: initialise useState with a lazy initialiser that reads from localStorage synchronously (e.g. useState(() => JSON.parse(localStorage.getItem('ll_cart_v1') || '[]'))) and drop the hydration useEffect. This eliminates the moment when items=[] is persisted before saved items are loaded.",
+    "Add DialogDescription (or aria-describedby) inside Add/Edit Product DialogContent to remove the a11y warning."
+  ],
+  "critical_code_review_comments": [
+    "lib/cart.js – race condition between hydration useEffect and persistence useEffect (see action_items).",
+    "AdminPage.jsx is 498 lines – could be split into ProductsTab.jsx, CategoriesTab.jsx, SlidesTab.jsx, AccountTab.jsx for maintainability.",
+    "server.py uses deprecated @app.on_event('startup'/'shutdown') – consider migrating to lifespan context manager (FastAPI >=0.93).",
+    "Backend /api/discounts/validate finds any product matching code – if two products share the same code, only the first is returned. Consider enforcing unique discount_code at creation time or returning all matches.",
+    "Backend /api/files/{path} re-fetches from object storage on every request; consider Cache-Control headers for served images.",
+    "Frontend uploaded image URLs are stored as relative '/api/files/...'; resolveImageUrl handles this, but if REACT_APP_BACKEND_URL changes between admin upload and end-user view it still resolves correctly. OK."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_lawanglimo_api.py (new)"
+  ],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "~93% (1 high-priority cart persistence bug; rest working)"
+  },
+  "test_credentials": "admin / admin123 (restored after change-password test)",
+  "seed_data_creation": "Created via UI: category 'TestCat-UI' and product 'UI Test Product' (price 100000, discount HEMAT10 10%). Backend pytest also creates TEST_* prefixed transient data and deletes within each test. UI-created seed product/category were NOT cleaned up (admin token had expired after reload); main agent or next iteration can delete via Admin > Produk if needed.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend tests live in /app/backend/tests/test_lawanglimo_api.py (run: pytest backend/tests/test_lawanglimo_api.py -v). They auto-skip if admin/admin123 is no longer valid. WA number is 6281329856815. Discount code testing requires creating a product with discount_code first (since codes are stored on products). The cart race-bug is reproduced by: add item on /shop, navigate to /cart (works), then page.reload() – cart becomes empty.",
+  "rca of the issue": "Cart persistence-after-reload bug RCA: In CartProvider, useEffect #1 reads localStorage and calls setItems(saved); useEffect #2 (dep=[items]) immediately runs on the same commit with the still-initial items=[] and writes '[]' to localStorage. Although a subsequent re-render restores it via the second pass of useEffect #2, Playwright still observed items=0 after reload+1.2s. Fix: use lazy useState initializer that synchronously hydrates from localStorage, removing the race window entirely."
+}
