@@ -12,6 +12,7 @@ import ShopPage from "@/pages/ShopPage";
 import CartPage from "@/pages/CartPage";
 import AdminLoginPage from "@/pages/AdminLoginPage";
 import AdminPage from "@/pages/AdminPage";
+import RecoveryResetPage from "@/pages/RecoveryResetPage";
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
               <Route path="/shop" element={<ShopPage />} />
               <Route path="/cart" element={<CartPage />} />
               <Route path="/admin/login" element={<AdminLoginPage />} />
+              <Route path="/admin/recovery" element={<RecoveryResetPage />} />
               <Route path="/admin" element={<AdminPage />} />
             </Routes>
           </main>

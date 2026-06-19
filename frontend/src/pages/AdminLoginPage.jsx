@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -78,6 +78,15 @@ export default function AdminLoginPage() {
           >
             {loading ? "Memuat…" : "Masuk"}
           </Button>
+          <div className="text-center">
+            <Link
+              to="/admin/recovery"
+              data-testid="forgot-password-link"
+              className="text-sm text-[#4A5568] hover:text-brand"
+            >
+              Lupa password?
+            </Link>
+          </div>
           <p className="text-[11px] text-center text-[#4A5568]">
             Default: <code>admin</code> / <code>admin123</code> — segera ganti setelah login.
           </p>

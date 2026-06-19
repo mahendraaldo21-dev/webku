@@ -5,6 +5,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 import uuid
+import secrets
 import bcrypt
 import jwt
 import requests
@@ -70,6 +71,10 @@ class ChangeCredentialsRequest(BaseModel):
     current_password: str
     new_username: Optional[str] = None
     new_password: Optional[str] = None
+
+class RecoveryResetRequest(BaseModel):
+    recovery_key: str
+    new_password: str
 
 class ProductIn(BaseModel):
     name: str
@@ -174,7 +179,45 @@ async def login(req: LoginRequest):
 
 @api_router.get("/auth/me")
 async def me(admin = Depends(get_current_admin)):
-    return {"username": admin["username"]}
+    return {
+        "username": admin["username"],
+        "recovery_key_set": bool(admin.get("recovery_key_hash")),
+    }
+
+@api_router.post("/auth/generate-recovery")
+async def generate_recovery(admin = Depends(get_current_admin)):
+    # Generate a 16-char alphanumeric key, grouped XXXX-XXXX-XXXX-XXXX
+    raw = "".join(secrets.choice("ABCDEFGHJKLMNPQRSTUVWXYZ23456789") for _ in range(16))
+    formatted = "-".join([raw[i:i+4] for i in range(0, 16, 4)])
+    key_hash = hash_password(formatted)
+    await db.admins.update_one(
+        {"username": admin["username"]},
+        {"$set": {"recovery_key_hash": key_hash}}
+    )
+    return {"recovery_key": formatted}
+
+@api_router.post("/auth/reset-with-recovery")
+async def reset_with_recovery(req: RecoveryResetRequest):
+    key = req.recovery_key.strip().upper()
+    new_pw = req.new_password.strip()
+    if len(new_pw) < 6:
+        raise HTTPException(status_code=400, detail="Password minimal 6 karakter")
+    if not key:
+        raise HTTPException(status_code=400, detail="Kode pemulihan kosong")
+    # Find any admin whose recovery key matches
+    cursor = db.admins.find({"recovery_key_hash": {"$exists": True, "$ne": None}})
+    async for adm in cursor:
+        if verify_password(key, adm.get("recovery_key_hash", "")):
+            await db.admins.update_one(
+                {"id": adm["id"]},
+                {
+                    "$set": {"password_hash": hash_password(new_pw)},
+                    "$unset": {"recovery_key_hash": ""},
+                }
+            )
+            token = create_token(adm["username"])
+            return {"token": token, "username": adm["username"]}
+    raise HTTPException(status_code=401, detail="Kode pemulihan tidak valid")
 
 @api_router.post("/auth/change-credentials")
 async def change_credentials(req: ChangeCredentialsRequest, admin = Depends(get_current_admin)):

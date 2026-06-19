@@ -15,7 +15,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, LogOut, Upload, ImageIcon, ShieldCheck, MapPin, BadgePercent } from "lucide-react";
+import { Plus, Pencil, Trash2, LogOut, Upload, ImageIcon, ShieldCheck, MapPin, BadgePercent, KeyRound, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 
 export default function AdminPage() {
@@ -681,25 +681,133 @@ function AccountTab({ onUsernameChange }) {
   };
 
   return (
-    <div className="bg-white rounded-3xl border border-[#E2E8F0] soft-shadow p-6 max-w-xl">
-      <h2 className="font-heading text-xl font-semibold">Ganti Username / Password</h2>
-      <form onSubmit={submit} className="mt-5 space-y-4">
-        <div>
-          <Label>Password Saat Ini</Label>
-          <Input data-testid="acc-current-password" type="password" required value={form.current_password} onChange={(e) => setForm({ ...form, current_password: e.target.value })} className="mt-1" />
+    <div className="space-y-6 max-w-xl">
+      <div className="bg-white rounded-3xl border border-[#E2E8F0] soft-shadow p-6">
+        <h2 className="font-heading text-xl font-semibold">Ganti Username / Password</h2>
+        <form onSubmit={submit} className="mt-5 space-y-4">
+          <div>
+            <Label>Password Saat Ini</Label>
+            <Input data-testid="acc-current-password" type="password" required value={form.current_password} onChange={(e) => setForm({ ...form, current_password: e.target.value })} className="mt-1" />
+          </div>
+          <div>
+            <Label>Username Baru (opsional)</Label>
+            <Input data-testid="acc-new-username" value={form.new_username} onChange={(e) => setForm({ ...form, new_username: e.target.value })} className="mt-1" />
+          </div>
+          <div>
+            <Label>Password Baru (opsional)</Label>
+            <Input data-testid="acc-new-password" type="password" value={form.new_password} onChange={(e) => setForm({ ...form, new_password: e.target.value })} className="mt-1" />
+          </div>
+          <Button data-testid="acc-submit" type="submit" disabled={loading} className="rounded-full bg-brand hover:bg-[#C9302C] text-white">
+            {loading ? "Menyimpan…" : "Simpan Perubahan"}
+          </Button>
+        </form>
+      </div>
+
+      <RecoveryKeySection />
+    </div>
+  );
+}
+
+// ===== Recovery Key Section =====
+function RecoveryKeySection() {
+  const [status, setStatus] = useState(null); // {recovery_key_set}
+  const [newKey, setNewKey] = useState(null);
+  const [generating, setGenerating] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const loadStatus = () => {
+    api.get("/auth/me").then((r) => setStatus(r.data)).catch(() => {});
+  };
+  useEffect(() => { loadStatus(); }, []);
+
+  const generate = async () => {
+    if (status?.recovery_key_set) {
+      if (!window.confirm("Anda sudah punya kode pemulihan. Membuat baru akan menggantikannya. Lanjut?")) return;
+    }
+    setGenerating(true);
+    try {
+      const res = await api.post("/auth/generate-recovery");
+      setNewKey(res.data.recovery_key);
+      setCopied(false);
+      loadStatus();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Gagal membuat kode");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const copy = async () => {
+    if (!newKey) return;
+    try {
+      await navigator.clipboard.writeText(newKey);
+      setCopied(true);
+      toast.success("Kode disalin ke clipboard");
+    } catch {
+      toast.error("Gagal menyalin");
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-3xl border border-[#E2E8F0] soft-shadow p-6">
+      <div className="flex items-center gap-2">
+        <KeyRound className="h-5 w-5 text-brand" />
+        <h2 className="font-heading text-xl font-semibold">Kode Pemulihan</h2>
+      </div>
+      <p className="mt-2 text-sm text-[#4A5568] leading-relaxed">
+        Kalau lupa password, gunakan kode pemulihan untuk reset password tanpa hubungi admin.
+        Simpan kode ini <strong>di tempat aman</strong> (catatan HP, email pribadi). Kode hanya
+        bisa dilihat <strong>satu kali</strong>.
+      </p>
+
+      <div className="mt-4">
+        <div className="inline-flex items-center gap-2 text-xs">
+          <span className="text-[#4A5568]">Status:</span>
+          {status?.recovery_key_set ? (
+            <span className="inline-flex items-center gap-1 text-green-700 bg-green-50 px-2 py-0.5 rounded-full font-medium">
+              <Check className="h-3 w-3" /> Aktif
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-[#4A5568] bg-[#F3F1EC] px-2 py-0.5 rounded-full font-medium">
+              Belum diatur
+            </span>
+          )}
         </div>
-        <div>
-          <Label>Username Baru (opsional)</Label>
-          <Input data-testid="acc-new-username" value={form.new_username} onChange={(e) => setForm({ ...form, new_username: e.target.value })} className="mt-1" />
+      </div>
+
+      {newKey && (
+        <div data-testid="recovery-key-display" className="mt-5 rounded-2xl border-2 border-dashed border-brand/40 bg-[#FAF9F6] p-5">
+          <div className="text-xs uppercase tracking-widest text-brand font-semibold">Kode pemulihan baru Anda</div>
+          <div className="mt-2 flex items-center gap-2 flex-wrap">
+            <code className="font-mono text-lg sm:text-xl font-bold tracking-wider text-[#1A202C] select-all break-all">
+              {newKey}
+            </code>
+            <Button
+              data-testid="copy-recovery-btn"
+              onClick={copy}
+              variant="outline"
+              size="sm"
+              className="rounded-full"
+            >
+              {copied ? <Check className="h-3.5 w-3.5 mr-1" /> : <Copy className="h-3.5 w-3.5 mr-1" />}
+              {copied ? "Tersalin" : "Salin"}
+            </Button>
+          </div>
+          <p className="mt-3 text-xs text-brand font-medium">
+            ⚠️ Simpan SEKARANG. Setelah halaman ini ditutup, kode tidak bisa dilihat lagi.
+          </p>
         </div>
-        <div>
-          <Label>Password Baru (opsional)</Label>
-          <Input data-testid="acc-new-password" type="password" value={form.new_password} onChange={(e) => setForm({ ...form, new_password: e.target.value })} className="mt-1" />
-        </div>
-        <Button data-testid="acc-submit" type="submit" disabled={loading} className="rounded-full bg-brand hover:bg-[#C9302C] text-white">
-          {loading ? "Menyimpan…" : "Simpan Perubahan"}
-        </Button>
-      </form>
+      )}
+
+      <Button
+        data-testid="generate-recovery-btn"
+        onClick={generate}
+        disabled={generating}
+        className="mt-5 rounded-full bg-[#1A202C] hover:bg-black text-white"
+      >
+        <KeyRound className="h-4 w-4 mr-2" />
+        {generating ? "Membuat…" : status?.recovery_key_set ? "Buat Kode Baru" : "Buat Kode Pemulihan"}
+      </Button>
     </div>
   );
 }
