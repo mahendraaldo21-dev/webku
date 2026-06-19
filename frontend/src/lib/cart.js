@@ -4,20 +4,24 @@ const CartContext = createContext(null);
 
 const STORAGE_KEY = "ll_cart_v1";
 
+const loadInitial = () => {
+  try {
+    const raw = typeof window !== "undefined" ? window.localStorage.getItem(STORAGE_KEY) : null;
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+};
+
 export const CartProvider = ({ children }) => {
-  const [items, setItems] = useState([]);
+  const [items, setItems] = useState(loadInitial);
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setItems(JSON.parse(raw));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
     } catch (e) {
       // ignore
     }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
   }, [items]);
 
   const addItem = (product, qty = 1) => {
