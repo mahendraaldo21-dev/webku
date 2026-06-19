@@ -77,12 +77,14 @@ class ProductIn(BaseModel):
     price: float
     category: str = ""
     image_url: str = ""
-    discount_code: Optional[str] = None
-    discount_percent: Optional[float] = None
     stock: int = 0
 
 class CategoryIn(BaseModel):
     name: str
+
+class CouponIn(BaseModel):
+    code: str
+    discount_percent: float
 
 class SlidesIn(BaseModel):
     images: List[str]
@@ -229,9 +231,6 @@ async def list_products(category: Optional[str] = None):
     if category:
         q["category"] = category
     products = await db.products.find(q, {"_id": 0}).sort("created_at", -1).to_list(1000)
-    # Hide discount_code from public
-    for p in products:
-        p.pop("discount_code", None)
     return products
 
 @api_router.get("/products/{product_id}")
@@ -239,7 +238,6 @@ async def get_product(product_id: str):
     p = await db.products.find_one({"id": product_id}, {"_id": 0})
     if not p:
         raise HTTPException(status_code=404, detail="Produk tidak ditemukan")
-    p.pop("discount_code", None)
     return p
 
 @api_router.post("/products")
@@ -346,19 +344,49 @@ async def update_maps(payload: MapsIn, admin = Depends(get_current_admin)):
 # ============ Discount ============
 @api_router.post("/discounts/validate")
 async def validate_discount(req: DiscountCheckRequest):
-    code = req.code.strip()
+    code = req.code.strip().upper()
     if not code:
-        raise HTTPException(status_code=400, detail="Kode diskon kosong")
-    # Find any product with this code
-    product = await db.products.find_one({"discount_code": code})
-    if not product:
-        raise HTTPException(status_code=404, detail="Kode diskon tidak valid")
+        raise HTTPException(status_code=400, detail="Kode kupon kosong")
+    coupon = await db.coupons.find_one({"code": code}, {"_id": 0})
+    if not coupon:
+        raise HTTPException(status_code=404, detail="Kode kupon tidak valid")
     return {
-        "code": code,
-        "discount_percent": product.get("discount_percent", 0),
-        "product_id": product.get("id"),
-        "product_name": product.get("name")
+        "code": coupon["code"],
+        "discount_percent": coupon.get("discount_percent", 0),
     }
+
+# ============ Coupons (admin) ============
+@api_router.get("/coupons")
+async def list_coupons(admin = Depends(get_current_admin)):
+    coupons = await db.coupons.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return coupons
+
+@api_router.post("/coupons")
+async def create_coupon(payload: CouponIn, admin = Depends(get_current_admin)):
+    code = payload.code.strip().upper()
+    if not code:
+        raise HTTPException(status_code=400, detail="Kode kupon kosong")
+    if payload.discount_percent <= 0 or payload.discount_percent > 100:
+        raise HTTPException(status_code=400, detail="Persen diskon harus 1-100")
+    exists = await db.coupons.find_one({"code": code})
+    if exists:
+        raise HTTPException(status_code=400, detail="Kode kupon sudah ada")
+    doc = {
+        "id": str(uuid.uuid4()),
+        "code": code,
+        "discount_percent": float(payload.discount_percent),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.coupons.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+@api_router.delete("/coupons/{coupon_id}")
+async def delete_coupon(coupon_id: str, admin = Depends(get_current_admin)):
+    res = await db.coupons.delete_one({"id": coupon_id})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Kupon tidak ditemukan")
+    return {"ok": True}
 
 # ============ Health ============
 @api_router.get("/")

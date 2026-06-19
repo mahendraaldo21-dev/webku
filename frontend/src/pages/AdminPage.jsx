@@ -15,7 +15,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, LogOut, Upload, ImageIcon, ShieldCheck, MapPin } from "lucide-react";
+import { Plus, Pencil, Trash2, LogOut, Upload, ImageIcon, ShieldCheck, MapPin, BadgePercent } from "lucide-react";
 import { toast } from "sonner";
 
 export default function AdminPage() {
@@ -71,6 +71,7 @@ export default function AdminPage() {
         <TabsList className="bg-[#F3F1EC] rounded-full p-1">
           <TabsTrigger data-testid="tab-products" value="products" className="rounded-full">Produk</TabsTrigger>
           <TabsTrigger data-testid="tab-categories" value="categories" className="rounded-full">Kategori</TabsTrigger>
+          <TabsTrigger data-testid="tab-coupons" value="coupons" className="rounded-full">Kupon</TabsTrigger>
           <TabsTrigger data-testid="tab-slides" value="slides" className="rounded-full">Slider</TabsTrigger>
           <TabsTrigger data-testid="tab-maps" value="maps" className="rounded-full">Lokasi</TabsTrigger>
           <TabsTrigger data-testid="tab-settings" value="settings" className="rounded-full">Akun</TabsTrigger>
@@ -78,6 +79,7 @@ export default function AdminPage() {
 
         <TabsContent value="products" className="mt-6"><ProductsTab /></TabsContent>
         <TabsContent value="categories" className="mt-6"><CategoriesTab /></TabsContent>
+        <TabsContent value="coupons" className="mt-6"><CouponsTab /></TabsContent>
         <TabsContent value="slides" className="mt-6"><SlidesTab /></TabsContent>
         <TabsContent value="maps" className="mt-6"><MapsTab /></TabsContent>
         <TabsContent value="settings" className="mt-6"><AccountTab onUsernameChange={setUsername} /></TabsContent>
@@ -120,7 +122,7 @@ function ProductsTab() {
             <DialogHeader>
               <DialogTitle>{editing ? "Edit Produk" : "Tambah Produk"}</DialogTitle>
               <DialogDescription>
-                Isi detail barang. Untuk fitur diskon, tambahkan kode unik & persen diskon.
+                Isi detail barang. Untuk diskon, buat kode kupon universal di tab "Kupon".
               </DialogDescription>
             </DialogHeader>
             <ProductForm
@@ -141,13 +143,12 @@ function ProductsTab() {
               <TableHead>Kategori</TableHead>
               <TableHead>Harga</TableHead>
               <TableHead>Stok</TableHead>
-              <TableHead>Diskon</TableHead>
               <TableHead className="text-right">Aksi</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {products.length === 0 && (
-              <TableRow><TableCell colSpan={7} className="text-center py-10 text-[#4A5568]">Belum ada produk.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center py-10 text-[#4A5568]">Belum ada produk.</TableCell></TableRow>
             )}
             {products.map((p) => (
               <TableRow key={p.id} data-testid={`admin-product-row-${p.id}`}>
@@ -160,11 +161,6 @@ function ProductsTab() {
                 <TableCell>{p.category || "-"}</TableCell>
                 <TableCell>{formatRupiah(p.price)}</TableCell>
                 <TableCell>{p.stock ?? 0}</TableCell>
-                <TableCell>
-                  {p.discount_code ? (
-                    <span className="text-xs"><code>{p.discount_code}</code> · {p.discount_percent}%</span>
-                  ) : "-"}
-                </TableCell>
                 <TableCell className="text-right">
                   <Button
                     data-testid={`edit-product-${p.id}`}
@@ -197,8 +193,6 @@ function ProductForm({ initial, categories, onDone }) {
     price: initial?.price || 0,
     category: initial?.category || "",
     image_url: initial?.image_url || "",
-    discount_code: initial?.discount_code || "",
-    discount_percent: initial?.discount_percent || 0,
     stock: initial?.stock ?? 0,
   });
   const [uploading, setUploading] = useState(false);
@@ -231,8 +225,6 @@ function ProductForm({ initial, categories, onDone }) {
       ...form,
       price: parseFloat(form.price) || 0,
       stock: parseInt(form.stock, 10) || 0,
-      discount_percent: form.discount_percent ? parseFloat(form.discount_percent) : null,
-      discount_code: form.discount_code?.trim() || null,
     };
     try {
       if (initial?.id) {
@@ -298,20 +290,6 @@ function ProductForm({ initial, categories, onDone }) {
             </Button>
           </div>
         </div>
-        <div className="col-span-2 border-t pt-4">
-          <div className="text-xs uppercase tracking-widest text-[#4A5568]">Fitur Diskon (Opsional)</div>
-          <div className="grid grid-cols-2 gap-3 mt-2">
-            <div>
-              <Label>Kode Diskon</Label>
-              <Input data-testid="form-product-discount-code" placeholder="contoh: HEMAT10" value={form.discount_code} onChange={(e) => change("discount_code", e.target.value.toUpperCase())} className="mt-1" />
-            </div>
-            <div>
-              <Label>Persen Diskon (%)</Label>
-              <Input data-testid="form-product-discount-percent" type="number" min="0" max="100" value={form.discount_percent} onChange={(e) => change("discount_percent", e.target.value)} className="mt-1" />
-            </div>
-          </div>
-          <p className="mt-1 text-[11px] text-[#4A5568]">Pembeli memasukkan kode di keranjang untuk dapat diskon barang ini.</p>
-        </div>
       </div>
       <DialogFooter>
         <Button data-testid="form-product-submit" type="submit" className="rounded-full bg-brand hover:bg-[#C9302C] text-white">
@@ -369,6 +347,125 @@ function CategoriesTab() {
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+// ===== Coupons Tab =====
+function CouponsTab() {
+  const [coupons, setCoupons] = useState([]);
+  const [code, setCode] = useState("");
+  const [percent, setPercent] = useState("");
+
+  const load = () => api.get("/coupons").then((r) => setCoupons(r.data || []));
+  useEffect(() => { load(); }, []);
+
+  const add = async (e) => {
+    e.preventDefault();
+    if (!code.trim() || !percent) return;
+    try {
+      await api.post("/coupons", {
+        code: code.trim().toUpperCase(),
+        discount_percent: parseFloat(percent),
+      });
+      setCode("");
+      setPercent("");
+      load();
+      toast.success("Kupon ditambahkan");
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Gagal");
+    }
+  };
+
+  const remove = async (id) => {
+    if (!window.confirm("Hapus kupon ini?")) return;
+    await api.delete(`/coupons/${id}`);
+    load();
+    toast.success("Kupon dihapus");
+  };
+
+  return (
+    <div className="bg-white rounded-3xl border border-[#E2E8F0] soft-shadow p-6 max-w-3xl">
+      <div className="flex items-center gap-2">
+        <BadgePercent className="h-5 w-5 text-brand" />
+        <h2 className="font-heading text-xl font-semibold">Kupon Diskon</h2>
+      </div>
+      <p className="mt-2 text-sm text-[#4A5568]">
+        Kupon berlaku <strong>universal</strong> untuk seluruh isi keranjang.
+        Pembeli memasukkan kode di halaman keranjang.
+      </p>
+
+      <form onSubmit={add} className="mt-5 grid grid-cols-1 sm:grid-cols-[2fr_1fr_auto] gap-2 items-end">
+        <div>
+          <Label>Kode Kupon</Label>
+          <Input
+            data-testid="coupon-code-input"
+            placeholder="contoh: HEMAT10"
+            value={code}
+            onChange={(e) => setCode(e.target.value.toUpperCase())}
+            className="mt-1 rounded-full bg-[#FAF9F6] border-[#E2E8F0]"
+            required
+          />
+        </div>
+        <div>
+          <Label>Persen Diskon (%)</Label>
+          <Input
+            data-testid="coupon-percent-input"
+            type="number"
+            min="1"
+            max="100"
+            placeholder="10"
+            value={percent}
+            onChange={(e) => setPercent(e.target.value)}
+            className="mt-1 rounded-full bg-[#FAF9F6] border-[#E2E8F0]"
+            required
+          />
+        </div>
+        <Button
+          data-testid="add-coupon-btn"
+          type="submit"
+          className="rounded-full bg-brand hover:bg-[#C9302C] text-white h-10"
+        >
+          <Plus className="h-4 w-4 mr-1" /> Tambah
+        </Button>
+      </form>
+
+      <div className="mt-6 overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Kode</TableHead>
+              <TableHead>Diskon</TableHead>
+              <TableHead className="text-right">Aksi</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {coupons.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={3} className="text-center py-10 text-[#4A5568]">
+                  Belum ada kupon.
+                </TableCell>
+              </TableRow>
+            )}
+            {coupons.map((c) => (
+              <TableRow key={c.id} data-testid={`coupon-row-${c.id}`}>
+                <TableCell><code className="font-mono font-semibold">{c.code}</code></TableCell>
+                <TableCell>{c.discount_percent}%</TableCell>
+                <TableCell className="text-right">
+                  <Button
+                    data-testid={`delete-coupon-${c.id}`}
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => remove(c.id)}
+                  >
+                    <Trash2 className="h-4 w-4 text-brand" />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }

@@ -10,14 +10,11 @@ import { toast } from "sonner";
 export default function CartPage() {
   const { items, updateQty, removeItem, subtotal, clearCart } = useCart();
   const [discountCode, setDiscountCode] = useState("");
-  const [appliedDiscount, setAppliedDiscount] = useState(null); // {code, discount_percent, product_id}
+  const [appliedDiscount, setAppliedDiscount] = useState(null); // {code, discount_percent}
   const [checking, setChecking] = useState(false);
 
-  const applicableItem = appliedDiscount
-    ? items.find((i) => i.id === appliedDiscount.product_id)
-    : null;
-  const discountAmount = applicableItem
-    ? (applicableItem.price * applicableItem.qty * (appliedDiscount.discount_percent || 0)) / 100
+  const discountAmount = appliedDiscount
+    ? (subtotal * (appliedDiscount.discount_percent || 0)) / 100
     : 0;
   const total = Math.max(0, subtotal - discountAmount);
 
@@ -26,15 +23,10 @@ export default function CartPage() {
     setChecking(true);
     try {
       const res = await api.post("/discounts/validate", { code: discountCode.trim() });
-      if (!items.find((i) => i.id === res.data.product_id)) {
-        toast.error(`Kode hanya berlaku untuk ${res.data.product_name}. Tambahkan barangnya dulu.`);
-        setAppliedDiscount(null);
-      } else {
-        setAppliedDiscount(res.data);
-        toast.success(`Diskon ${res.data.discount_percent}% diterapkan untuk ${res.data.product_name}`);
-      }
+      setAppliedDiscount(res.data);
+      toast.success(`Kupon ${res.data.code} (${res.data.discount_percent}%) diterapkan`);
     } catch (e) {
-      toast.error(e.response?.data?.detail || "Kode diskon tidak valid");
+      toast.error(e.response?.data?.detail || "Kode kupon tidak valid");
       setAppliedDiscount(null);
     } finally {
       setChecking(false);
@@ -52,8 +44,8 @@ export default function CartPage() {
       msg += `${i + 1}. ${it.name} x${it.qty} — ${formatRupiah(it.price * it.qty)}\n`;
     });
     msg += `\nSubtotal: ${formatRupiah(subtotal)}`;
-    if (appliedDiscount && applicableItem) {
-      msg += `\nKode Diskon: ${appliedDiscount.code} (${appliedDiscount.discount_percent}% untuk ${applicableItem.name})`;
+    if (appliedDiscount) {
+      msg += `\nKupon: ${appliedDiscount.code} (${appliedDiscount.discount_percent}%)`;
       msg += `\nPotongan: -${formatRupiah(discountAmount)}`;
     }
     msg += `\nTotal: ${formatRupiah(total)}\n\nMohon info ketersediaan & pengirimannya, terima kasih!`;
@@ -146,7 +138,7 @@ export default function CartPage() {
           <div className="mt-5">
             <label className="text-xs uppercase tracking-widest text-[#4A5568] flex items-center gap-1.5">
               <BadgePercent className="h-3.5 w-3.5" />
-              Kode Diskon
+              Kode Kupon
             </label>
             <div className="mt-2 flex gap-2">
               <Input
@@ -184,9 +176,9 @@ export default function CartPage() {
               <span className="text-[#4A5568]">Subtotal</span>
               <span data-testid="summary-subtotal" className="font-medium">{formatRupiah(subtotal)}</span>
             </div>
-            {appliedDiscount && applicableItem && (
+            {appliedDiscount && (
               <div className="flex justify-between text-brand">
-                <span>Diskon ({appliedDiscount.code})</span>
+                <span>Kupon ({appliedDiscount.code} · {appliedDiscount.discount_percent}%)</span>
                 <span data-testid="summary-discount">-{formatRupiah(discountAmount)}</span>
               </div>
             )}
