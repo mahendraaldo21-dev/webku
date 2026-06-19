@@ -87,6 +87,10 @@ class CategoryIn(BaseModel):
 class SlidesIn(BaseModel):
     images: List[str]
 
+class MapsIn(BaseModel):
+    embed_url: str
+    link_url: str = ""
+
 class DiscountCheckRequest(BaseModel):
     code: str
 
@@ -311,6 +315,33 @@ async def update_slides(payload: SlidesIn, admin = Depends(get_current_admin)):
         upsert=True
     )
     return {"images": images}
+
+# ============ Maps ============
+DEFAULT_MAPS_EMBED = "https://www.google.com/maps?q=Lawanglimo&output=embed"
+DEFAULT_MAPS_LINK = "https://maps.app.goo.gl/ujmyhaeKVCEXRX717"
+
+@api_router.get("/maps")
+async def get_maps():
+    s = await db.settings.find_one({"key": "maps"}, {"_id": 0})
+    if not s:
+        return {"embed_url": DEFAULT_MAPS_EMBED, "link_url": DEFAULT_MAPS_LINK}
+    return {
+        "embed_url": s.get("embed_url") or DEFAULT_MAPS_EMBED,
+        "link_url": s.get("link_url") or DEFAULT_MAPS_LINK,
+    }
+
+@api_router.put("/maps")
+async def update_maps(payload: MapsIn, admin = Depends(get_current_admin)):
+    embed = payload.embed_url.strip()
+    link = payload.link_url.strip()
+    if not embed:
+        raise HTTPException(status_code=400, detail="URL embed kosong")
+    await db.settings.update_one(
+        {"key": "maps"},
+        {"$set": {"embed_url": embed, "link_url": link}},
+        upsert=True
+    )
+    return {"embed_url": embed, "link_url": link}
 
 # ============ Discount ============
 @api_router.post("/discounts/validate")

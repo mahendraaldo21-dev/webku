@@ -15,7 +15,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, LogOut, Upload, ImageIcon, ShieldCheck } from "lucide-react";
+import { Plus, Pencil, Trash2, LogOut, Upload, ImageIcon, ShieldCheck, MapPin } from "lucide-react";
 import { toast } from "sonner";
 
 export default function AdminPage() {
@@ -72,12 +72,14 @@ export default function AdminPage() {
           <TabsTrigger data-testid="tab-products" value="products" className="rounded-full">Produk</TabsTrigger>
           <TabsTrigger data-testid="tab-categories" value="categories" className="rounded-full">Kategori</TabsTrigger>
           <TabsTrigger data-testid="tab-slides" value="slides" className="rounded-full">Slider</TabsTrigger>
+          <TabsTrigger data-testid="tab-maps" value="maps" className="rounded-full">Lokasi</TabsTrigger>
           <TabsTrigger data-testid="tab-settings" value="settings" className="rounded-full">Akun</TabsTrigger>
         </TabsList>
 
         <TabsContent value="products" className="mt-6"><ProductsTab /></TabsContent>
         <TabsContent value="categories" className="mt-6"><CategoriesTab /></TabsContent>
         <TabsContent value="slides" className="mt-6"><SlidesTab /></TabsContent>
+        <TabsContent value="maps" className="mt-6"><MapsTab /></TabsContent>
         <TabsContent value="settings" className="mt-6"><AccountTab onUsernameChange={setUsername} /></TabsContent>
       </Tabs>
     </div>
@@ -447,6 +449,112 @@ function SlidesTab() {
       <div className="mt-6 flex justify-end">
         <Button data-testid="save-slides-btn" onClick={save} className="rounded-full bg-brand hover:bg-[#C9302C] text-white">
           Simpan Slider
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ===== Maps Tab =====
+function MapsTab() {
+  const [form, setForm] = useState({ embed_url: "", link_url: "" });
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    api.get("/maps").then((r) => setForm({
+      embed_url: r.data.embed_url || "",
+      link_url: r.data.link_url || "",
+    }));
+  }, []);
+
+  const extractEmbedSrc = (raw) => {
+    // If user pastes the full <iframe ...> tag, extract the src attribute
+    const m = raw.match(/src=["']([^"']+)["']/);
+    return m ? m[1] : raw.trim();
+  };
+
+  const save = async () => {
+    setLoading(true);
+    try {
+      const embed_url = extractEmbedSrc(form.embed_url);
+      await api.put("/maps", { embed_url, link_url: form.link_url.trim() });
+      setForm((f) => ({ ...f, embed_url }));
+      toast.success("Lokasi maps tersimpan");
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Gagal menyimpan");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-3xl border border-[#E2E8F0] soft-shadow p-6 max-w-3xl">
+      <div className="flex items-center gap-2">
+        <MapPin className="h-5 w-5 text-brand" />
+        <h2 className="font-heading text-xl font-semibold">Lokasi Toko di Beranda</h2>
+      </div>
+      <p className="text-sm text-[#4A5568] mt-2 leading-relaxed">
+        Ganti peta yang tampil di halaman utama. Ikuti langkah berikut:
+      </p>
+      <ol className="mt-3 text-sm text-[#4A5568] list-decimal pl-5 space-y-1.5">
+        <li>Buka <a href="https://maps.google.com" target="_blank" rel="noreferrer" className="text-brand underline">maps.google.com</a> di browser komputer/HP.</li>
+        <li>Cari nama toko atau alamat lengkap toko Anda.</li>
+        <li>Klik tombol <strong>Bagikan</strong> (Share) → tab <strong>Sematkan peta</strong> (Embed a map).</li>
+        <li>Salin <strong>seluruh tag <code>&lt;iframe …&gt;</code></strong> ATAU hanya bagian <code>src="…"</code>.</li>
+        <li>Tempel di kolom <em>Embed URL</em> di bawah, lalu simpan.</li>
+      </ol>
+
+      <div className="mt-6 space-y-4">
+        <div>
+          <Label>Embed URL (atau paste seluruh kode iframe)</Label>
+          <Textarea
+            data-testid="maps-embed-input"
+            rows={3}
+            value={form.embed_url}
+            onChange={(e) => setForm({ ...form, embed_url: e.target.value })}
+            placeholder='<iframe src="https://www.google.com/maps/embed?pb=..." …></iframe>'
+            className="mt-1 font-mono text-xs"
+          />
+          <p className="mt-1 text-[11px] text-[#4A5568]">
+            Sistem akan otomatis mengambil bagian <code>src</code> dari kode iframe yang Anda paste.
+          </p>
+        </div>
+        <div>
+          <Label>Link Google Maps (opsional, untuk tombol "Buka di Google Maps")</Label>
+          <Input
+            data-testid="maps-link-input"
+            value={form.link_url}
+            onChange={(e) => setForm({ ...form, link_url: e.target.value })}
+            placeholder="https://maps.app.goo.gl/..."
+            className="mt-1"
+          />
+        </div>
+      </div>
+
+      {form.embed_url && (
+        <div className="mt-6">
+          <Label>Pratinjau</Label>
+          <div className="mt-2 aspect-video rounded-2xl border border-[#E2E8F0] overflow-hidden bg-[#F3F1EC]">
+            <iframe
+              key={form.embed_url}
+              title="Preview Maps"
+              src={extractEmbedSrc(form.embed_url)}
+              className="w-full h-full"
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+            />
+          </div>
+        </div>
+      )}
+
+      <div className="mt-6 flex justify-end">
+        <Button
+          data-testid="save-maps-btn"
+          onClick={save}
+          disabled={loading}
+          className="rounded-full bg-brand hover:bg-[#C9302C] text-white"
+        >
+          {loading ? "Menyimpan…" : "Simpan Lokasi"}
         </Button>
       </div>
     </div>

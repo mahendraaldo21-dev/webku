@@ -1,11 +1,22 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import HeroCarousel from "@/components/HeroCarousel";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, MapPin, Sparkles, ShieldCheck, Truck } from "lucide-react";
-import { STORE_INFO } from "@/lib/api";
+import { STORE_INFO, api } from "@/lib/api";
 
 export default function HomePage() {
+  const [maps, setMaps] = useState({
+    embed_url: STORE_INFO.maps_embed,
+    link_url: STORE_INFO.maps_link,
+  });
+
+  useEffect(() => {
+    api.get("/maps").then((r) => {
+      if (r.data?.embed_url) setMaps(r.data);
+    }).catch(() => {});
+  }, []);
+
   return (
     <div data-testid="home-page">
       {/* Hero */}
@@ -81,7 +92,7 @@ export default function HomePage() {
               Belanja online praktis, atau datang langsung ke toko offline kami untuk pengalaman belanja yang lebih personal.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
-              <a href={STORE_INFO.maps_link} target="_blank" rel="noreferrer">
+              <a href={maps.link_url || STORE_INFO.maps_link} target="_blank" rel="noreferrer">
                 <Button
                   data-testid="open-maps-btn"
                   className="rounded-full bg-[#1A202C] hover:bg-black text-white h-11"
@@ -98,7 +109,7 @@ export default function HomePage() {
           >
             <iframe
               title="Lokasi Toko"
-              src={STORE_INFO.maps_embed}
+              src={maps.embed_url}
               className="absolute inset-0 w-full h-full"
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
